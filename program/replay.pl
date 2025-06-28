@@ -1,7 +1,9 @@
 #!/usr/bin/perl
+use strict;
+use warnings;
 #VERSION,1.00
 ###############################################################################
-#  Copyright (C) 20l2 Chris Sullo
+#  Copyright (C) 2012 Chris Sullo
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License
@@ -23,7 +25,11 @@
 use Getopt::Long;
 use JSON::PP;
 require 'plugins/LW2.pm';
-my ($infile, $proxy, %request, $header, %result, $s_request);
+
+my ($infile, $proxy, $header, $s_request);
+my %request;
+my %result;
+
 LW2::http_init_request(\%request);
 
 # options
@@ -44,8 +50,8 @@ if (!-r $infile) {
     exit 1;
 }
 
-open(INFILE, "<$infile") || die print "Unable to open file: $!\n\n";
-while (<INFILE>) {
+open(my $INFILE, "<$infile") || die "Unable to open file: $!\n\n";
+while (<$INFILE>) {
     if ($_ =~ /^(Test ID|Message|References):/) { $header .= $_; next; }
     next unless $_ =~ /^REQUEST:/;
     chomp;
@@ -56,7 +62,7 @@ while (<INFILE>) {
         exit 1;
     }
 }
-close(INFILE);
+close($INFILE);
 
 # set into request hash
 foreach my $key (keys %{$s_request}) {
@@ -77,7 +83,7 @@ if ($proxy ne '') {
 # output for the user
 print "-" x 44, "  Info\n";
 print "Request to:     http";
-print "s" if $request->{'whisker'}->{'ssl'};
+print "s" if $request{'whisker'}->{'ssl'};
 print "://"
   . $request{'whisker'}->{'host'} . ":"
   . $request{'whisker'}->{'port'}
