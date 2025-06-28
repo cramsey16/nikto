@@ -56,18 +56,14 @@ sub change_variables {
 ###############################################################################
 sub unslash {
     my $line = $_[0] || return;        # $line is the slash-escaped variable
-    my @line = split(/\\\\/, $line);
-    foreach (@line) {
-        $_ =~ s/\\a/\a/g;
-        $_ =~ s/\\b/\b/g;
-        $_ =~ s/\\e/\e/g;
-        $_ =~ s/\\f/\f/g;
-        $_ =~ s/\\n/\n/g;
-        $_ =~ s/\\r/\r/g;
-        $_ =~ s/\\t/\t/g;
-        $_ =~ s/\\x([[:xdigit:]]2)/chr(hex($1))/ge;
-    }
-    return join("\\", @line);
+    
+    # Early return for empty strings
+    return $line if $line eq '';
+    
+    # Use a single regex with eval to handle all escape sequences at once
+    $line =~ s/\\([abefnrt])|\\x([[:xdigit:]]{2})/defined($1) ? eval("qq{\\$1}") : chr(hex($2))/ge;
+    
+    return $line;
 }
 
 ###############################################################################
@@ -78,21 +74,27 @@ sub is_404 {
     #print "mode: " . $FoF{$ext}{'mode'} . "\n";
     #print "code: " . $rescode . "\n";
 
-    if (   (($FoF{$ext}{'mode'} eq "STD") || ($FoF{$ext}{'mode'} eq ''))
-        && ($rescode =~ /4[0-9][0-9]/)) {
+    # Cache the FoF entry to avoid repeated hash lookups
+    my $fof_entry = $FoF{$ext};
+    
+    # Check STD mode first (most common case)
+    if (($fof_entry->{'mode'} eq "STD" || $fof_entry->{'mode'} eq '') && $rescode =~ /4[0-9][0-9]/) {
         return 1;
     }
-    elsif ($FoF{$ext}{'mode'} eq "REDIR") {
-        if (get_base_host($loc_header) eq $FoF{$ext}{'location'}) {
+    # Check REDIR mode
+    elsif ($fof_entry->{'mode'} eq "REDIR" && $loc_header) {
+        if (get_base_host($loc_header) eq $fof_entry->{'location'}) {
             return 1;
         }
     }
-    elsif (($FoF{$ext}{'type'} eq "BLANK") && ($content eq "")) {
+    # Check BLANK type
+    elsif ($fof_entry->{'type'} eq "BLANK" && $content eq "") {
         return 1;
     }
-    elsif ($FoF{$ext}{'type'} eq "HASH") {
-        my $content = rm_active_content($content, $uri);
-        if (LW2::md4($content) eq $FoF{$ext}{'match'}) {
+    # Check HASH type (most expensive, check last)
+    elsif ($fof_entry->{'type'} eq "HASH") {
+        my $clean_content = rm_active_content($content, $uri);
+        if (LW2::md4($clean_content) eq $fof_entry->{'match'}) {
             return 1;
         }
     }
@@ -156,14 +158,12 @@ sub nprint {
 
     # don't print debug & verbose to output file...
     if ($mode ne '') {
-        if ($mode eq "d" && $OUTPUT{'debug'}) {
-            print STDERR "D:" . localtime() . " $line\n";
-        }
-        elsif ($mode eq "v" && $OUTPUT{'verbose'}) {
-            print "V:" . localtime() . " $line\n";
-        }
-       elsif ($mode eq "e" && $OUTPUT{'errors'}) {
-            print "E:" . localtime() . " $line\n";
+        my %output_flags = ('d' => 'debug', 'v' => 'verbose', 'e' => 'errors');
+        
+        if (exists $output_flags{$mode} && $OUTPUT{$output_flags{$mode}}) {
+            my $prefix = $mode eq 'd' ? "D:" : $mode eq 'v' ? "V:" : "E:";
+            my $output = $mode eq 'd' ? \*STDERR : \*STDOUT;
+            print $output $prefix . localtime() . " $line\n";
         }
         return;
     }
@@ -172,8 +172,7 @@ sub nprint {
     if ($line =~ /^\t?\+ ERROR:/) { print STDERR "$line\n"; return; }
 
     # don't print to STDOUT if output file is "-"
-    my $file = $CLI{'file'};
-    return if defined $file && $file eq "-";
+    return if defined $CLI{'file'} && $CLI{'file'} eq "-";
 
     $line =~
       s/(CVE\-[12][0-9]{3}-[0-9]{4,5})/http:\/\/cve.mitre.org\/cgi-bin\/cvename.cgi?name\=$1/g;
@@ -404,6 +403,7 @@ sub rm_active_content {
 
     # Try to remove active content which could mess up the file's signature
     my ($cont, $file) = @_;
+    return "" if (length($cont) == 0);
 
     # Dates/Times
     $cont =~ s/[12]\d{3}[-.\/][1-3]?\d[-.\/][1-3]?\d//g;    # 2001-12-12
