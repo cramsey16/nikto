@@ -74,7 +74,7 @@ sub unslash {
 sub is_404 {
     my ($uri, $content, $rescode, $loc_header) = @_;
     $ext = get_ext($uri);
-    #$rescode=404;
+
     #print "mode: " . $FoF{$ext}{'mode'} . "\n";
     #print "code: " . $rescode . "\n";
 
@@ -193,13 +193,13 @@ sub nprint {
 ###############################################################################
 sub get_ext {
     my $uri = $_[0] || return;
-    if ($uri =~ /\/$/) { return "DIRECTORY"; }
+    return "DIRECTORY" if $uri =~ /\/$/;
     $uri =~ s/^.*\///;
-    if ($uri =~ /^\.[^.%]/) { return "DOTFILE"; }
+    return "DOTFILE" if $uri =~ /^\.[^.%]/;
     $uri =~ s/[?&%].*$//;
-    if ($uri !~ /\./) { return "NONE"; }
+    return "NONE" if index($uri, '.') == -1;
     $uri =~ s/\@[A-Z]+//;    # remove tokens
-    $uri =~ s/\".*$//;
+    $uri =~ s/".*$//;
     $uri =~ s/^.*\.//;
     return $uri;
 }
@@ -998,7 +998,7 @@ sub time_to_seconds {
 
 ###############################################################################
 sub sleeper {
-    sleep($CLI{'pause'}) if (defined $CLI{'pause'});
+    sleep($CLI{'pause'}) if defined $CLI{'pause'};
 }
 
 ###############################################################################
@@ -1066,20 +1066,22 @@ sub pause {
 }
 ###############################################################################
 sub readkey {
+    return if $^O =~ /MSWin32/;  # Early return for Windows
+    
     my $key;
-    return if ($^O =~ /MSWin32/);
-
     $NIKTO{'POSIX'}{'term'}->setlflag($NIKTO{'POSIX'}{'noecho'});
     $NIKTO{'POSIX'}{'term'}->setattr($NIKTO{'POSIX'}{'fd_stdin'}, TCSANOW);
+    
     eval {
         local $SIG{ALRM} = sub { die; };
         ualarm(1_000);
         sysread(STDIN, $key, 1);
         ualarm(0);
     };
+    
     $NIKTO{'POSIX'}{'term'}->setlflag($NIKTO{'POSIX'}{'oterm'});
     $NIKTO{'POSIX'}{'term'}->setattr($NIKTO{'POSIX'}{'fd_stdin'}, TCSANOW);
-
+    
     return $key;
 }
 
