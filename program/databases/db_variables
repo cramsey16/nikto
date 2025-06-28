@@ -13,6 +13,7 @@
 # Notes:
 # Variables which will be used as replacements for values in the scan_database.db and user_scan_database.db files. 
 # Any values to be replaced must start with the @ character, such as: @CGIDIRS.
+# They should be unique names and *not* substrings of each other, e.g., @CGI and @CGIDIRS
 # 
 # User defined variables should be set in config.txt as this file may be over-written during updates.
 #######################################################################

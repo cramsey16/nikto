@@ -23,6 +23,11 @@ sub change_variables {
     my ($line) = @_; 
     my @subtests;
 
+    # If no variables to expand, return
+    if (index($line, '@') == -1) {
+        return ($line);
+    }
+
     # Use cached $shname for efficiency
     my $shname = $mark->{'hostname'} || $mark->{'ip'};
 
@@ -37,15 +42,14 @@ sub change_variables {
     if (index($line, '@') == -1) {
         push @subtests, $line;
     } else {
-        # Sort variable names by length (desc) to avoid partial replacements
-        foreach my $varname (sort { length($b) <=> length($a) } keys %VARIABLES) {
-            if ($line =~ /\Q$varname\E/) {  # \Q...\E quotes metacharacters
-                foreach my $value (split(/\s+/, $VARIABLES{$varname})) {
+        foreach my $varname (keys %VARIABLES) {
+            next unless index($line, $varname) != -1;
+            if ($line =~ /\Q$varname\E/) {
+                return map {
                     my $cooked = $line;
-                    $cooked =~ s/\Q$varname\E/$value/g;
-                    push @subtests, change_variables($cooked);
-                }
-                last;  # Only expand one variable at a time to avoid combinatorial explosion
+                    $cooked =~ s/\Q$varname\E/$_/g;
+                    change_variables($cooked)
+                } split(/\s+/, $VARIABLES{$varname});
             }
         }
     }
