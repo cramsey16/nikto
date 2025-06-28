@@ -325,20 +325,7 @@ sub map_codes {
 
     # these are some used that may not be in the db_tests
     if (defined $CLI{'mutate'}) {
-        $db_extensions{'bak'}  = 1;
-        $db_extensions{'data'} = 1;
-        $db_extensions{'dbc'}  = 1;
-        $db_extensions{'dbf'}  = 1;
-        $db_extensions{'lst'}  = 1;
-        $db_extensions{'htx'}  = 1;
-        $db_extensions{'htm'}  = 1;
-        $db_extensions{'html'} = 1;
-        $db_extensions{'ini'}  = 1;
-        $db_extensions{'lst'}  = 1;
-        $db_extensions{'txt'}  = 1;
-        $db_extensions{'xml'}  = 1;
-        $db_extensions{'php'}  = 1;
-        $db_extensions{'php3'} = 1;
+        @db_extensions{qw(bak data dbc dbf lst htx htm html ini txt xml php php3)} = (1) x 13;
     }
 
     foreach my $ext (keys %db_extensions) {
@@ -354,6 +341,11 @@ sub map_codes {
     $REQS{"/$rs/"} = "DIRECTORY";
     $REQS{"/$rs"}  = "NONE";
     $REQS{"/.$rs"} = "DOTFILE";
+    my %response_map = (
+        200 => "OK",
+        300 => "REDIR", 301 => "REDIR", 302 => "REDIR", 303 => "REDIR", 307 => "REDIR",
+        401 => "STD", 403 => "STD", 404 => "STD", 410 => "STD"
+    );
 
     foreach my $file (keys %REQS) {
         return if $mark->{'terminate'};
@@ -371,17 +363,15 @@ sub map_codes {
         }
 
         # if it is not specific type, figure out Content or HASH method...
-        if    ($FoF{$ext}{'response'} eq 404) { $FoF{$ext}{'mode'} = "STD"; next; }
-        elsif ($FoF{$ext}{'response'} eq 200) { $FoF{$ext}{'mode'} = "OK"; }
-        elsif ($FoF{$ext}{'response'} eq 410) { $FoF{$ext}{'mode'} = "STD";   next; }
-        elsif ($FoF{$ext}{'response'} eq 401) { $FoF{$ext}{'mode'} = "STD";   next; }
-        elsif ($FoF{$ext}{'response'} eq 403) { $FoF{$ext}{'mode'} = "STD";   next; }
-        elsif ($FoF{$ext}{'response'} eq 300) { $FoF{$ext}{'mode'} = "REDIR"; next; }
-        elsif ($FoF{$ext}{'response'} eq 301) { $FoF{$ext}{'mode'} = "REDIR"; next; }
-        elsif ($FoF{$ext}{'response'} eq 302) { $FoF{$ext}{'mode'} = "REDIR"; next; }
-        elsif ($FoF{$ext}{'response'} eq 303) { $FoF{$ext}{'mode'} = "REDIR"; next; }
-        elsif ($FoF{$ext}{'response'} eq 307) { $FoF{$ext}{'mode'} = "REDIR"; next; }
-        else                                  { $FoF{$ext}{'mode'} = "OTHER"; }
+        # Use hash lookup for response code mapping to avoid multiple if-elsif statements
+        my $response = $FoF{$ext}{'response'};
+        
+        if (exists $response_map{$response}) {
+            $FoF{$ext}{'mode'} = $response_map{$response};
+            next if ($response_map{$response} eq "STD" || $response_map{$response} eq "REDIR");
+        } else {
+            $FoF{$ext}{'mode'} = "OTHER";
+        }
 
         # if we've got an OK/OTHER response, look at content first
         # blank content, or hash...
