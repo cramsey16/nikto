@@ -20,29 +20,32 @@
 ###############################################################################
 
 sub change_variables {
+    my ($line) = @_; 
+    my @subtests;
 
-    my $line = $_[0];    # $line is the unfiltered variable
-    my @subtests;        # @subtests is the returned array of expanded variables
-    my $cooked;
-
+    # Use cached $shname for efficiency
     my $shname = $mark->{'hostname'} || $mark->{'ip'};
+
+    # Replace static variables
     $line =~ s/\@IP/$mark->{'ip'}/g;
     $line =~ s/\@HOSTNAME/$shname/g;
-    $line =~ s/JUNK\(([0-9]+)\)/LW2::utils_randstr($1)/e;
 
-    if ($line !~ "\@") {
-        push(@subtests, $line);
-    }
-    else {
-        foreach my $varname (keys %VARIABLES) {
-            if ($line =~ /$varname/) {
+    # Replace JUNK(n) with random string
+    $line =~ s/JUNK\((\d+)\)/LW2::utils_randstr($1)/e;
 
-                # We've found the variable; expand it
-                foreach my $value (split(/ /, $VARIABLES{$varname})) {
-                    $cooked = $line;
-                    $cooked =~ s/$varname/$value/g;
-                    push(@subtests, change_variables($cooked));
+    # If no more variables to expand, return
+    if (index($line, '@') == -1) {
+        push @subtests, $line;
+    } else {
+        # Sort variable names by length (desc) to avoid partial replacements
+        foreach my $varname (sort { length($b) <=> length($a) } keys %VARIABLES) {
+            if ($line =~ /\Q$varname\E/) {  # \Q...\E quotes metacharacters
+                foreach my $value (split(/\s+/, $VARIABLES{$varname})) {
+                    my $cooked = $line;
+                    $cooked =~ s/\Q$varname\E/$value/g;
+                    push @subtests, change_variables($cooked);
                 }
+                last;  # Only expand one variable at a time to avoid combinatorial explosion
             }
         }
     }
@@ -137,8 +140,7 @@ sub scrub {
 
 ###############################################################################
 sub nprint {
-    my $line = shift;
-    my $mode = shift;
+    my ($line, $mode) = @_;
     chomp($line);
 
     # Deferred output?
@@ -157,10 +159,10 @@ sub nprint {
         if ($mode eq "d" && $OUTPUT{'debug'}) {
             print STDERR "D:" . localtime() . " $line\n";
         }
-        if ($mode eq "v" && $OUTPUT{'verbose'}) {
+        elsif ($mode eq "v" && $OUTPUT{'verbose'}) {
             print "V:" . localtime() . " $line\n";
         }
-        if ($mode eq "e" && $OUTPUT{'errors'}) {
+       elsif ($mode eq "e" && $OUTPUT{'errors'}) {
             print "E:" . localtime() . " $line\n";
         }
         return;
@@ -170,7 +172,8 @@ sub nprint {
     if ($line =~ /^\t?\+ ERROR:/) { print STDERR "$line\n"; return; }
 
     # don't print to STDOUT if output file is "-"
-    if ((defined $CLI{'file'}) && ($CLI{'file'} eq "-")) { return; }
+    my $file = $CLI{'file'};
+    return if defined $file && $file eq "-";
 
     $line =~
       s/(CVE\-[12][0-9]{3}-[0-9]{4,5})/http:\/\/cve.mitre.org\/cgi-bin\/cvename.cgi?name\=$1/g;
@@ -934,9 +937,6 @@ sub general_config {
 
     # Set up User-Agent
     $VARIABLES{'useragent'} = $CONFIGFILE{'USERAGENT'};
-    $VARIABLES{'useragent'} =~ s/\@VERSION/$VARIABLES{'version'}/g;
-    my $ev = $CLI{'evasion'} || "None";
-    $VARIABLES{'useragent'} =~ s/\@EVASIONS/$ev/g;
 
     # RFI URL -- push it to VARIABLES
     if (defined $CONFIGFILE{'RFIURL'}) {
@@ -1024,56 +1024,38 @@ sub safe_quit {
 ###############################################################################
 sub check_input {
     my ($mark) = @_;
-
     my $key = readkey();
-    if ($key eq '') { return; }
+    return if $key eq '';
+
+    # Key to OUTPUT field mapping for toggles
+    my %toggles = (
+        v => 'verbose',
+        d => 'debug',
+        e => 'errors',
+        p => 'progress',
+        r => 'show_redirects',
+        c => 'show_cookies',
+        o => 'show_ok',
+        a => 'show_auth',
+    );
 
     if ($key eq ' ') {
         status_report($mark);
-    }
-    elsif ($key eq 'v') {
-        if   ($OUTPUT{'verbose'}) { $OUTPUT{'verbose'} = 0; }
-        else                      { $OUTPUT{'verbose'} = 1; }
-    }
-    elsif ($key eq 'd') {
-        if   ($OUTPUT{'debug'}) { $OUTPUT{'debug'} = 0; }
-        else                    { $OUTPUT{'debug'} = 1; }
-    }
-    elsif ($key eq 'e') {
-        if   ($OUTPUT{'errors'}) { $OUTPUT{'errors'} = 0; }
-        else                     { $OUTPUT{'errors'} = 1; }
-    }
-    elsif ($key eq 'p') {
-        if   ($OUTPUT{'progress'}) { $OUTPUT{'progress'} = 0; }
-        else                       { $OUTPUT{'progress'} = 1; }
-    }
-    elsif ($key eq 'r') {
-        if   ($OUTPUT{'show_redirects'}) { $OUTPUT{'show_redirects'} = 0; }
-        else                             { $OUTPUT{'show_redirects'} = 1; }
-    }
-    elsif ($key eq 'c') {
-        if   ($OUTPUT{'show_cookies'}) { $OUTPUT{'show_cookies'} = 0; }
-        else                           { $OUTPUT{'show_cookies'} = 1; }
-    }
-    elsif ($key eq 'o') {
-        if   ($OUTPUT{'show_ok'}) { $OUTPUT{'show_ok'} = 0; }
-        else                      { $OUTPUT{'show_ok'} = 1; }
-    }
-    elsif ($key eq 'a') {
-        if   ($OUTPUT{'show_auth'}) { $OUTPUT{'show_auth'} = 0; }
-        else                        { $OUTPUT{'show_auth'} = 1; }
-    }
-    elsif (($key eq 'q') || (ord($key) eq 3)) {
+        }
+    elsif (exists $toggles{$key}) {
+        $OUTPUT{$toggles{$key}} = !$OUTPUT{$toggles{$key}};
+        }
+    elsif ($key eq 'q' || ord($key) == 3) {
         safe_quit($mark);
-    }
+        }
     elsif ($key eq 'P') {
         status_report($mark);
         pause();
-    }
+        }
     elsif ($key eq 'N') {
         nprint("- Terminating host scan.");
         return 'term';
-    }
+        }
     return;
 }
 ###############################################################################
@@ -2366,11 +2348,11 @@ sub setup_hash {
         $reqhash->{'whisker'}->{'anti_ids'} = $CLI{'evasion'};
     }
     $reqhash->{'User-Agent'} = $VARIABLES{'useragent'};
-    $reqhash->{'User-Agent'} =~ s/\@TESTID/$testid/;
     $reqhash->{'whisker'}->{'retry'} = 0;
-    $reqhash->{'whisker'}->{'host'}  = $mark->{'hostname'} || $mark->{'ip'};
+    $reqhash->{'whisker'}->{'host'} = $mark->{'hostname'} || $mark->{'ip'};
 
-    if ($mark->{'vhost'} ne '') {
+    # Use pre-computed vhost flag to avoid string comparison on every request
+    if ($mark->{'has_vhost'}) {
         $reqhash->{'Host'} = $mark->{'vhost'};
     }
     $reqhash->{'whisker'}->{'port'}            = $mark->{'port'};
@@ -2437,17 +2419,17 @@ sub nfetch {
     # Check for keyboard input  & terminate flag
     if (!$CLI{'nointeractive'} && (($COUNTERS{'totalrequests'} % 10) == 0)) {
         if (check_input($mark) eq 'term') { $mark->{'terminate'} = 1; }
-        if ($CLI{'until'} ne '') {
-            if ($CLI{'until'} <= time()) {
-                pause('u');
+        if (length $CLI{'until'}) {
+            pause('u') if $CLI{'until'} <= time();
             }
         }
-    }
 
     # Check execution time
-    if ($CLI{'maxtime'} ne '') {
-        if ((time() - $mark->{'start_time'}) > $CLI{'maxtime'}) {
-            nprint("+ ERROR: Host maximum execution time of $CLI{'maxtime'} seconds reached");
+    my $maxtime = $CLI{'maxtime'};
+    if ($maxtime) {
+        my $elapsed = time() - $mark->{'start_time'};
+        if ($elapsed > $maxtime) {
+            nprint("+ ERROR: Host maximum execution time of $maxtime seconds reached");
             $mark->{'terminate'} = 1;
         }
     }
@@ -2461,7 +2443,7 @@ sub nfetch {
     $request{'whisker'}->{'method'} = $method;
 
     # POST data?
-    if ($data ne "") {
+    if ($data) {
         $data =~ s/\\\"/\"/g;
         $request{'whisker'}->{'data'} = $data;
     }
@@ -2509,7 +2491,7 @@ sub nfetch {
     my $time = [gettimeofday];
     LW2::http_do_request_timeout(\%request, \%result);
     $COUNTERS{'totalrequests'}++;
-    if ($^O !~ /MSWin32/) {
+    if (!$VARIABLES{'MSWIN32'} ) {
         running_average(tv_interval($time, [gettimeofday]), $mark);
     }
 
@@ -2536,20 +2518,27 @@ sub nfetch {
         my $newlocation = $result{'location'};
 
         # Is a full URL redirect the same host?
-        if ($result{'location'} =~
-            /^https?:\/\/($mark->{'ip'}|$mark->{'hostname'}|$mark{'display_name'})\//i) {
-            $newlocation =~
-              s/^https?:\/\/(?:$mark->{'ip'}|$mark->{'hostname'}|$mark{'display_name'})\//\//i;
+        # Prepare host alternatives, quoted for regex safety
+        my $host_re = join '|', map { quotemeta $_ } (
+            $mark->{'ip'},
+            $mark->{'hostname'},
+            $mark->{'display_name'}
+        );
+        my $port_re = $mark->{'port'} ? '(?:\:' . quotemeta($mark->{'port'}) . ')?' : '';
+        if ($result{'location'} =~ /^https?:\/\/($host_re)$port_re\//i) {
+            $newlocation =~ s{^https?:\/\/(?:$host_re)$port_re/}{/}i;
         }
         $request{'whisker'}->{'uri'} = $newlocation;
 
         # Make redirect request
         LW2::http_fixup_request(\%request) unless ($flags->{'noclean'});
+        sleeper();
         LW2::http_do_request_timeout(\%request, \%result);
         $COUNTERS{'totalrequests'}++;
     }
 
-    if (($CONFIGFILE{'FAILURES'} > 0) && ($mark->{'failures'} >= $CONFIGFILE{'FAILURES'})) {
+    my $fail_limit = $CONFIGFILE{'FAILURES'};
+    if ($fail_limit > 0 && $mark->{'failures'} >= $fail_limit) {
         nprint(
             "+ ERROR: Error limit ($CONFIGFILE{'FAILURES'}) reached for host, giving up. Last error: "
               . $result{'whisker'}->{'error'},
@@ -2568,21 +2557,22 @@ sub nfetch {
     }
 
     # Snarf what we can from the whisker hash and put in mark
+    my $banner  = \$mark->{'banner'};
     if (!exists $result{'whisker'}->{'error'}) {
-        if ((!exists $mark->{'banner'}) || ($mark->{'banner'} eq "")) {
-            $mark->{'banner'} = $result{'server'};
+        if ($$banner eq "") {
+            $$banner = $result{'server'};
         }
         else {
 
             # Check banner hasn't changed
             if (   exists $result{'server'}
                 && !exists $mark->{'bannerchanged'}
-                && ($mark->{'banner'} ne $result{'server'})
+                && ($$banner ne $result{'server'})
                 && ($result{'server'} ne 'Microsoft-HTTPAPI/2.0')) {
                 add_vulnerability(
                           $mark,
                           $request->{'whisker'}->{'uri'}
-                            . ": Server banner changed from '$mark->{banner}' to '$result{server}'",
+                            . ": Server banner changed from '$$banner' to '$result{server}'",
                           999962,
                           "",
                           $method,
@@ -2645,7 +2635,6 @@ sub nfetch {
 
 #######################################################################
 sub set_scan_items {
-
     %TESTS = ();
     $COUNTERS{total_checks} = 0;
     my @SKIPLIST = ();
@@ -2816,7 +2805,6 @@ sub parse_csv {
 }
 #######################################################################
 sub check_modules {
-
     # Check dependencies
     eval "require JSON::PP";
     if ($@) {
@@ -2834,8 +2822,6 @@ sub check_modules {
 
 #######################################################################
 sub version {
-    my %NIKTOFILES;
-
     nprint("$VARIABLES{'name'} $VARIABLES{'version'} (LW $LW2::VERSION)");
 
     # Check dependencies
@@ -3156,7 +3142,6 @@ sub add_vulnerability {
 
 ###############################################################################
 sub list_plugins {
-
     # Just do a load_plugins, then loop through the array and print out name,
     # description and copyright
 
@@ -3313,16 +3298,14 @@ sub expand_pluginlist {
 # Check a regex for validation & fix. If mode=1, return a flag which indicates
 # whether the regex was changed
 sub validate_and_fix_regex {
-    my $regex = $_[0];
-    my $mode  = $_[1] || 0;
+    my ($regex, $mode) = @_;
     my $fixed = 0;
     eval { qr/$regex/ };
     if ($@) {
         $fixed = 1;
         $regex = rquote($regex);
     }
-    if ($mode) { return $regex, $fixed; }
-    return $regex;
+    return $mode ? ($regex, $fixed) : $regex;
 }
 ###############################################################################
 sub rquote {

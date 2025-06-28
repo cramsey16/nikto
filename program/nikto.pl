@@ -47,6 +47,12 @@ $VARIABLES{'name'}      = "Nikto";
 $VARIABLES{'version'}   = "2.5.0";
 $VARIABLES{'deferout'}  = 0;
 $VARIABLES{'defertxt'}  = [];
+$VARIABLES{'MSWIN32'} = 0;
+
+# Some Win versions can't use Time::HiRes correctly
+if ($^O =~ /MSWin32/) {
+    $VARIABLES{'MSWIN32'} = 1;
+}
 
 # signal trap so we can close down reports properly
 $SIG{'INT'} = \&safe_quit;
@@ -130,7 +136,15 @@ foreach my $mark (@MARKS) {
         }
     }
 
-    if (defined $CLI{'vhost'}) { $mark->{'vhost'} = $CLI{'vhost'} }
+    if (defined $CLI{'vhost'}) {
+        $mark->{'vhost'} = $CLI{'vhost'};
+        # Update vhost flag immediately after assignment
+        $mark->{'has_vhost'} = ($mark->{'vhost'} ne '');
+    } else {
+        # Update vhost flag for existing vhost value
+        $mark->{'has_vhost'} = (defined($mark->{'vhost'}) && $mark->{'vhost'} ne '');
+    }
+    $VARIABLES{'TEMPL_HCTR'}++;
 
 # Check that the port is open. Return value is overloaded, either 1 for open or an error message to convey
     my $open =
@@ -173,6 +187,8 @@ foreach my $mark (@MARKS) {
     if (defined $CLI{'vhost'}) {
         $mark->{'vhost'} = $CLI{'vhost'};
     }
+    # Update vhost flag after potential vhost assignment
+    $mark->{'has_vhost'} = (defined($mark->{'vhost'}) && $mark->{'vhost'} ne '');
     $VARIABLES{'TEMPL_HCTR'}++;
 
     # Saving responses
