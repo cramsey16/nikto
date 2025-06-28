@@ -2373,35 +2373,39 @@ sub setup_hash {
 sub running_average {
     my $last = shift;
     my ($mark) = @_;
-    unshift(@{ $mark->{'running_avg'} }, $last);
-    splice(@{ $mark->{'running_avg'} }, 100);
+    
+    # Use push instead of unshift for better performance
+    push(@{ $mark->{'running_avg'} }, $last);
+    
+    # Only splice if we exceed the limit (more efficient than always splicing)
+    if (@{ $mark->{'running_avg'} } > 100) {
+        splice(@{ $mark->{'running_avg'} }, 0, @{ $mark->{'running_avg'} } - 100);
+    }
 }
 
 #######################################################################
 sub running_average_print {
     use List::Util qw(sum);
-    my $message;
-    my ($mark)   = @_;
-    my @data     = @{ $mark->{'running_avg'} };
-    my $elements = $#data;
-    $elements++;
-    if ($elements eq 100) {
-        my $s   = sum(@data);
-        my $avg = $s / $elements;
-        $avg     = sprintf("%.5f", $avg);
-        $message = "100 requests: $avg sec, ";
+    my ($mark) = @_;
+    my @data = @{ $mark->{'running_avg'} };
+    my $elements = @data;  # More efficient than $#data + 1
+    
+    return "Running average: Not enough data." if $elements == 0;
+    
+    my $message = '';
+    
+    if ($elements == 100) {
+        my $avg = sum(@data) / $elements;
+        $message = sprintf("100 requests: %.5f sec, ", $avg);
     }
+    
     if ($elements > 10) {
-        @data = splice(@data, 9);
-        my $s = sum(@data);
-        $elements = $#data;
-        $elements++;
-        my $avg = $s / $elements;
-        $avg = sprintf("%.4f", $avg);
-        $message .= "10 requests: $avg sec";
+        my @recent_data = @data[9..$#data];  # More efficient than splice
+        my $recent_count = @recent_data;
+        my $avg = sum(@recent_data) / $recent_count;
+        $message .= sprintf("10 requests: %.4f sec", $avg);
     }
-
-    if ($message eq '') { $message = "Not enough data"; }
+    
     return "Running average: $message.";
 }
 
