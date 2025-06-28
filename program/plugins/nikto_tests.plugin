@@ -103,16 +103,18 @@ sub nikto_tests {
             }
 
             # If user puts a @CODE= string in db_404_strings, let it take precedence
-            foreach my $code (keys %{ $VARIABLES->{'ERRCODES'} }) {
-                if ($res =~ /$code/) {
+            # Pre-compile error codes regex for efficiency
+            if (defined $VARIABLES->{'ERRCODES'} && keys %{ $VARIABLES->{'ERRCODES'} }) {
+                # Create regex pattern from all error codes
+                my $error_pattern = join('|', map { quotemeta($_) } keys %{ $VARIABLES->{'ERRCODES'} });
+                if ($res =~ /$error_pattern/) {
                     next URI;
                 }
             }
 
-            my $m1_method = my $m1o_method = my $m1a_method = my $f2_method = my $f1_method =
-              "content";
-            my $positive = my $hashme = 0;
-            my $hash     = $reason    = '';
+            # Initialize method variables with default value
+            my ($m1_method, $m1o_method, $m1a_method, $f2_method, $f1_method) = ("content") x 5;
+            my ($positive, $hashme, $hash, $reason) = (0, 0, '', '');
 
             # how to check each conditional
             if    ($TESTS{$checkid}{'match_1'} =~ /^[0-9]{3}$/) { $m1_method = "code"; }
@@ -150,107 +152,128 @@ sub nikto_tests {
                 $TESTS{$checkid}{'fail_2'} =~ s/^\@MD5//;
             }
 
-            if ($hashme) {
-                $hash = LW2::md5($content);
-            }
+            $hash = LW2::md5($content) if $hashme;
 
+            # Cache the match_1 value to avoid repeated hash lookups
+            my $match_1 = $TESTS{$checkid}{'match_1'};
+            
             # basic match for positive response
             if ($m1_method eq "content") {
-                if ($content =~ /$TESTS{$checkid}{'match_1'}/) {
+                if ($content =~ /$match_1/) {
                     $positive = 1;
-                    $reason   = 'Content Match';
+                    $reason = 'Content Match';
                 }
             }
             elsif ($m1_method eq "md5") {
-                if ($hash eq $TESTS{$checkid}{'match_1'}) {
+                if ($hash eq $match_1) {
                     $positive = 1;
-                    $reason   = 'MD5 Hash';
+                    $reason = 'MD5 Hash';
                 }
             }
-            else {
-                if ($res eq $TESTS{$checkid}{'match_1'}) {
+            else {  # code method
+                if ($res eq $match_1) {
                     $positive = 1;
-                    $reason   = 'Response Code Match';
+                    $reason = 'Response Code Match';
                 }
                 elsif ($res eq $FoF{'okay'}{'response'}) {
                     $positive = 1;
-                    $reason   = 'Response Code Match - FoF OK Response)';
+                    $reason = 'Response Code Match - FoF OK Response)';
                 }
             }
 
             # no match, check optional match
-            if ((!$positive) && ($TESTS{$checkid}{'match_1_or'} ne "")) {
+            if (!$positive && $TESTS{$checkid}{'match_1_or'} ne "") {
+                # Cache the match_1_or value to avoid repeated hash lookups
+                my $match_1_or = $TESTS{$checkid}{'match_1_or'};
+                
                 if ($m1o_method eq "content") {
-                    if ($content =~ /$TESTS{$checkid}{'match_1_or'}/) {
+                    if ($content =~ /$match_1_or/) {
                         $positive = 1;
-                        $reason   = 'Content Match - Match 1 (Or)';
+                        $reason = 'Content Match - Match 1 (Or)';
                     }
                 }
                 elsif ($m1o_method eq "md5") {
-                    if ($hash eq $TESTS{$checkid}{'match_1_or'}) {
+                    if ($hash eq $match_1_or) {
                         $positive = 1;
-                        $reason   = 'MD5 Hash - Match 1 (Or)';
+                        $reason = 'MD5 Hash - Match 1 (Or)';
                     }
                 }
-                else {
-                    if ($res eq $TESTS{$checkid}{'match_1_or'}) {
+                else {  # code method
+                    if ($res eq $match_1_or) {
                         $positive = 1;
-                        $reason   = 'Response Code Match - Match 1 (Or)';
+                        $reason = 'Response Code Match - Match 1 (Or)';
                     }
                     elsif ($res eq $FoF{'okay'}{'response'}) {
                         $positive = 1;
-                        $reason   = 'Response Code Match - FoF OK Response / Match 1 (Or)';
+                        $reason = 'Response Code Match - FoF OK Response / Match 1 (Or)';
                     }
                 }
             }
 
             # matched on something, check fails/ands
             if ($positive) {
-                if ($TESTS{$checkid}{'fail_1'} ne "") {
+                # Cache test values to avoid repeated hash lookups
+                my $fail_1 = $TESTS{$checkid}{'fail_1'};
+                my $fail_2 = $TESTS{$checkid}{'fail_2'};
+                my $match_1_and = $TESTS{$checkid}{'match_1_and'};
+                
+                # Check fail_1 conditions
+                if ($fail_1 ne "") {
                     if ($f1_method eq "content") {
-                        if ($content =~ /$TESTS{$checkid}{'fail_1'}/) { next; }
+                        next if $content =~ /$fail_1/;
                     }
                     elsif ($f1_method eq "md5") {
-                        if ($hash eq $TESTS{$checkid}{'fail_1'}) {
-                            next;
-                        }
+                        next if $hash eq $fail_1;
                     }
-                    else {
-                        if ($res eq $TESTS{$checkid}{'fail_1'}) { next; }
+                    else {  # code method
+                        next if $res eq $fail_1;
                     }
                 }
-                if ($TESTS{$checkid}{'fail_2'} ne "") {
+                
+                # Check fail_2 conditions
+                if ($fail_2 ne "") {
                     if ($f2_method eq "content") {
-                        if ($content =~ /$TESTS{$checkid}{'fail_2'}/) { next; }
+                        next if $content =~ /$fail_2/;
                     }
                     elsif ($f2_method eq "md5") {
-                        if ($hash eq $TESTS{$checkid}{'fail_2'}) {
-                            next;
-                        }
+                        next if $hash eq $fail_2;
                     }
-                    else {
-                        if ($res eq $TESTS{$checkid}{'fail_2'}) { next; }
+                    else {  # code method
+                        next if $res eq $fail_2;
                     }
                 }
-                if ($TESTS{$checkid}{'match_1_and'} ne "") {
+                
+                # Check match_1_and conditions
+                if ($match_1_and ne "") {
                     if ($m1a_method eq "content") {
-                        if ($content !~ /$TESTS{$checkid}{'match_1_and'}/) { next; }
-                        else { $reason .= ' and content Match1 (And)'; }
+                        if ($content !~ /$match_1_and/) { 
+                            next; 
+                        } else { 
+                            $reason .= ' and content Match1 (And)'; 
+                        }
                     }
                     elsif ($m1a_method eq "md5") {
-                        if ($hash ne $TESTS{$checkid}{'match_1_and'}) { next; }
-                        else { $reason .= ' and MD5 Match1 (And)'; }
+                        if ($hash ne $match_1_and) { 
+                            next; 
+                        } else { 
+                            $reason .= ' and MD5 Match1 (And)'; 
+                        }
                     }
-                    else {
-                        if ($res ne $TESTS{$checkid}{'match_1_and'}) { next; }
-                        else { $reason .= ' and Response Code Match1 (And)'; }
+                    else {  # code method
+                        if ($res ne $match_1_and) { 
+                            next; 
+                        } else { 
+                            $reason .= ' and Response Code Match1 (And)'; 
+                        }
                     }
                 }
 
                 # if it's an index.php, check for normal /index.php to see if it's a FP
                 if ($uri =~ /^\/index.php\?/) {
-                    my $content = rm_active_content($content, $mark->{'root'} . $uri);
-                    if (LW2::md4($content) eq $FoF{'index.php'}{'match'}) { next; }
+                    my $clean_content = rm_active_content($content, $mark->{'root'} . $uri);
+                    if (LW2::md4($clean_content) eq $FoF{'index.php'}{'match'}) { 
+                        next; 
+                    }
                 }
 
                 # lastly check for a false positive based on file extension or type
@@ -260,36 +283,29 @@ sub nikto_tests {
                     }
                 }
 
-                if ($positive) {
-                    add_vulnerability($mark,
-                                      "$mark->{'root'}$uri: $TESTS{$checkid}{'message'}",
-                                      $checkid,
-                                      $TESTS{$checkid}{'references'},
-                                      $TESTS{$checkid}{'method'},
-                                      $mark->{'root'} . $uri,
-                                      $request,
-                                      $response,
-                                      $reason
-                                      );
-                }
+                # All checks passed, add vulnerability
+                add_vulnerability($mark,
+                                  "$mark->{'root'}$uri: $TESTS{$checkid}{'message'}",
+                                  $checkid,
+                                  $TESTS{$checkid}{'references'},
+                                  $TESTS{$checkid}{'method'},
+                                  $mark->{'root'} . $uri,
+                                  $request,
+                                  $response,
+                                  $reason
+                                  );
             }
         }
 
         # Percentages
-        if (($OUTPUT{'progress'}) && ($parameters->{'report'})) {
-            if (($COUNTERS{'totalrequests'} % $parameters->{'report'}) == 0) {
-                status_report();
-            }
+        if ($OUTPUT{'progress'} && $parameters->{'report'} && ($COUNTERS{'totalrequests'} % $parameters->{'report'}) == 0) {
+            status_report();
         }
     }    # end check loop
 
     # Perform mutation tests
-    if ($parameters->{'passfiles'}) {
-        passchecks($mark);
-    }
-    if ($parameters->{'all'}) {
-        allchecks($mark);
-    }
+    passchecks($mark) if $parameters->{'passfiles'};
+    allchecks($mark) if $parameters->{'all'};
 
     return;
 }
