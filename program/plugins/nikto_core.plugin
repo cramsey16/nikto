@@ -2555,19 +2555,32 @@ sub nfetch {
     # follow redirects
     if ($CLI{'followredirects'} && ($result{'whisker'}->{'code'} =~ /^30[1278]/)) {
         my $newlocation = $result{'location'};
+        my $port = $mark->{'port'};
 
         # Is a full URL redirect the same host?
-        # Prepare host alternatives, quoted for regex safety
+        # Pre-compute host alternatives for better performance
         my $host_re = join '|', map { quotemeta $_ } (
             $mark->{'ip'},
             $mark->{'hostname'},
             $mark->{'display_name'}
         );
-        my $port_re = $mark->{'port'} ? '(?:\:' . quotemeta($mark->{'port'}) . ')?' : '';
-        if ($result{'location'} =~ /^https?:\/\/($host_re)$port_re\//i) {
-            $newlocation =~ s{^https?:\/\/(?:$host_re)$port_re/}{/}i;
+        
+        # Only build port regex if port is specified
+        if ($port && $port != 80 && $port != 443) {
+            my $port_re = '(?:\:' . quotemeta($port) . ')?';
+            if ($result{'location'} =~ /^https?:\/\/($host_re)$port_re\//i) {
+                $newlocation =~ s{^https?:\/\/(?:$host_re)$port_re/}{/}i;
+            }
+        } else {
+            # No port needed in regex for standard ports
+            if ($result{'location'} =~ /^https?:\/\/($host_re)\//i) {
+                $newlocation =~ s{^https?:\/\/(?:$host_re)/}{/}i;
+            }
         }
-        $request{'whisker'}->{'uri'} = $newlocation;
+        
+        # Cache whisker reference to avoid repeated hash access
+        my $whisker = $request{'whisker'};
+        $whisker->{'uri'} = $newlocation;
 
         # Make redirect request
         LW2::http_fixup_request(\%request) unless ($flags->{'noclean'});
@@ -2576,6 +2589,7 @@ sub nfetch {
         $COUNTERS{'totalrequests'}++;
     }
 
+    # Check failures
     my $fail_limit = $CONFIGFILE{'FAILURES'};
     if ($fail_limit > 0 && $mark->{'failures'} >= $fail_limit) {
         nprint(
@@ -2596,46 +2610,47 @@ sub nfetch {
     }
 
     # Snarf what we can from the whisker hash and put in mark
-    my $banner  = \$mark->{'banner'};
-    if (!exists $result{'whisker'}->{'error'}) {
+    my $banner = \$mark->{'banner'};
+    my $whisker = $result{'whisker'};
+    
+    if (!exists $whisker->{'error'}) {
+        # Banner processing
         if ($$banner eq "") {
             $$banner = $result{'server'};
         }
-        else {
-
-            # Check banner hasn't changed
-            if (   exists $result{'server'}
-                && !exists $mark->{'bannerchanged'}
-                && ($$banner ne $result{'server'})
-                && ($result{'server'} ne 'Microsoft-HTTPAPI/2.0')) {
-                add_vulnerability(
-                          $mark,
-                          $request->{'whisker'}->{'uri'}
-                            . ": Server banner changed from '$$banner' to '$result{server}'",
-                          999962,
-                          "",
-                          $method,
-                          $uri,
-                          $request,
-                          $response
-                          );
-                $mark->{'bannerchanged'} = 1;
-            }
+        elsif (exists $result{'server'} 
+               && !exists $mark->{'bannerchanged'}
+               && ($$banner ne $result{'server'})
+               && ($result{'server'} ne 'Microsoft-HTTPAPI/2.0')) {
+            add_vulnerability(
+                $mark,
+                $request->{'whisker'}->{'uri'}
+                  . ": Server banner changed from '$$banner' to '$result{server}'",
+                999962,
+                "",
+                $method,
+                $uri,
+                $request,
+                $response
+            );
+            $mark->{'bannerchanged'} = 1;
         }
 
+        # TLS
         if (!exists $mark->{'ssl_cipher'} && $mark->{'ssl'}) {
-
+            # Cache SSL certificate array reference
+            my $altnames = $whisker->{'ssl_cert_altnames'};
+            
             # Grab ssl details
-            $mark->{'ssl_cipher'}       = $result{'whisker'}->{'ssl_cipher'};
-            $mark->{'ssl_cert_issuer'}  = $result{'whisker'}->{'ssl_cert_issuer'};
-            $mark->{'ssl_cert_subject'} = $result{'whisker'}->{'ssl_cert_subject'};
+            $mark->{'ssl_cipher'}       = $whisker->{'ssl_cipher'};
+            $mark->{'ssl_cert_issuer'}  = $whisker->{'ssl_cert_issuer'};
+            $mark->{'ssl_cert_subject'} = $whisker->{'ssl_cert_subject'};
 
-            # ssl_cert_altnaems comes back as an array
-            foreach my $n (@{ $result{'whisker'}->{'ssl_cert_altnames'} }) {
-                next if $n =~ /^[\d]+$/;    # type
-                $mark->{'ssl_cert_altnames'} .= "$n, ";
+            # Process altnames more efficiently
+            if ($altnames && @$altnames) {
+                my @valid_names = grep { $_ !~ /^[\d]+$/ } @$altnames;
+                $mark->{'ssl_cert_altnames'} = join(', ', @valid_names);
             }
-            $mark->{'ssl_cert_altnames'} =~ s/, $//;
         }
     }
 
