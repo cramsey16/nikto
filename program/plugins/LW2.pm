@@ -573,7 +573,7 @@ sub cookie_write {
         }
         next if ( $$hin{'whisker'}->{'ssl'} == 0 && $$jarref{$name}->[4] > 0 );
         if ( $$hin{'whisker'}->{'host'} =~ /$$jarref{$name}->[1]$/i
-                && $$hin{'whisker'}->{'uri'} =~ /^$$jarref{$name}->[2])/ )
+                && $$hin{'whisker'}->{'uri'} =~ /^$$jarref{$name}->[2]/ )
         {
             $out .= "$name=$$jarref{$name}->[0];";
         }
@@ -624,7 +624,7 @@ Params: $jar
 
 Return: @names
 
-Fetch all the cookie names from the jar, which then let you cooke_get()
+Fetch all the cookie names from the jar, which then let you cookei_get()
 them individually.
 
 =cut
@@ -2424,7 +2424,7 @@ sub http_init_request {    # doesn't return anything
 
     # default header values
     $$hin{'Connection'} = 'Keep-Alive';
-    $$hin{'User-Agent'} = "Mozilla (libwhisker/$LW2::VERSION)";
+    # $$hin{'User-Agent'} = "Mozilla (libwhisker/$LW2::VERSION)";
 }
 
 ##################################################################
