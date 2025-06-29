@@ -779,6 +779,15 @@ sub general_config {
         }
     }
 
+    # Check XML dependencies
+    if ($CLI{'format'} eq 'xml') {
+        eval "require XML::Writer";
+        if ($@) {
+            nprint("+ ERROR: Module XML::Writer missing. Install with: cpan XML::Writer");
+            exit 1;
+        }
+    }
+
     # port(s)
     if (defined $CLI{'ports'}) {
         $CLI{'ports'} =~ s/^\s+//;
@@ -858,9 +867,23 @@ sub general_config {
     }
 
     # verify readable dtd
-    if ($CLI{'format'} eq 'xml' && $CONFIGFILE{'NIKTODTD'} != "") {
-        nprint("+ ERROR: DTD not defined");
-        exit 1;
+    if ($CLI{'format'} eq 'xml') {
+        if (!defined $CONFIGFILE{'NIKTODTD'} || $CONFIGFILE{'NIKTODTD'} eq '') {
+            nprint("+ ERROR: DTD not defined in configuration");
+            exit 1;
+        }
+        
+        # Check if DTD file exists
+        my $dtd_path = $CONFIGFILE{'NIKTODTD'};
+        if ($dtd_path !~ /^\// && defined $CONFIGFILE{'EXECDIR'}) {
+            $dtd_path = "$CONFIGFILE{'EXECDIR'}/$dtd_path";
+        }
+        
+        if (!-f $dtd_path) {
+            nprint("+ ERROR: DTD file not found: $dtd_path");
+            nprint("+ Please check your nikto.conf configuration");
+            exit 1;
+        }
     }
 
     # screen output
@@ -1919,7 +1942,7 @@ sub load_plugins {
         push(@torun, 'report_nbe')  if $CLI{'file'} =~ /nbe/i;
         push(@torun, 'report_sqlg') if $CLI{'file'} =~ /sqlg/i;
         push(@torun, 'report_text') if $CLI{'file'} =~ /txt/i;
-        push(@torun, 'report_xml')  if $CLI{'file'} =~ /xml/i;
+        push(@torun, 'report_xml2') if $CLI{'file'} =~ /xml/i;  # Use new XML plugin by default
     }
 
     # Second pass to ensure that @@ALL is configured
