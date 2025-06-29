@@ -2066,6 +2066,7 @@ sub report_head {
                     my $handle;
                     if (defined $plugin->{report_head}) {
                         $handle = &{ $plugin->{report_head} }($file);
+                        $handle->autoflush(1) if ($file eq "-"); 
                     }
 
                     # Now store this
