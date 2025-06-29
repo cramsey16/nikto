@@ -2449,18 +2449,25 @@ sub nfetch {
     setup_hash(\%request, $mark, $testid);
 
     # Check for keyboard input  & terminate flag
-    if (!$CLI{'nointeractive'} && (($COUNTERS{'totalrequests'} % 10) == 0)) {
-        if (check_input($mark) eq 'term') { $mark->{'terminate'} = 1; }
-        if (length $CLI{'until'}) {
-            pause('u') if $CLI{'until'} <= time();
-            }
+    if (!$CLI{'nointeractive'} && !(($COUNTERS{'totalrequests'} % 10))) {
+        # Cache frequently accessed values
+        my $until_time = $CLI{'until'};
+        
+        # Check for termination first (most likely to cause early return)
+        if (check_input($mark) eq 'term') { 
+            $mark->{'terminate'} = 1; 
         }
+        # Check until time only if it's set
+        elsif (length($until_time) && $until_time <= time()) {
+            pause('u');
+        }
+    }
 
-    # Check execution time
-    my $maxtime = $CLI{'maxtime'};
-    if ($maxtime) {
-        my $elapsed = time() - $mark->{'start_time'};
-        if ($elapsed > $maxtime) {
+    # Check execution time - optimized
+    if (my $maxtime = $CLI{'maxtime'}) {
+        # Cache start_time to avoid repeated hash access
+        my $start_time = $mark->{'start_time'};
+        if ((time() - $start_time) > $maxtime) {
             nprint("+ ERROR: Host maximum execution time of $maxtime seconds reached");
             $mark->{'terminate'} = 1;
         }
@@ -2470,46 +2477,39 @@ sub nfetch {
     $request{'whisker'}->{'uri'} = $mark->{'root'} . $uri;
 
     # Remove trailing slash if requested
-    if ($CLI{'noslash'}) { $request{'whisker'}->{'uri'} =~ s/\/$//; }
+    $request{'whisker'}->{'uri'} =~ s/\/$// if ($CLI{'noslash'});
 
     $request{'whisker'}->{'method'} = $method;
 
     # POST data?
-    if ($data) {
+    if (length($data)) {
         $data =~ s/\\\"/\"/g;
         $request{'whisker'}->{'data'} = $data;
     }
 
     # Check for extra HTTP headers
     if (ref($headers_send) eq "HASH") {
+        # Use direct hash assignment for better performance
+        @$request{keys %$headers_send} = values %$headers_send;
+    }
 
-        # loop through the hash ref passed and add each header to request
-        while (my ($key, $value) = each(%$headers_send)) {
-            $request{$key} = $value;
+    # Set auth - optimized
+    if (my $realm = $mark->{'realms'}{'default'}) {
+        if (length($realm->{'authtype'})) {
+            LW2::auth_set($realm->{'authtype'},
+                          $request,
+                          $realm->{'id'},
+                          $realm->{'password'});
         }
     }
 
-    # Set auth
-    if ($mark->{'realms'}{'default'}{'authtype'} ne '') {
-        LW2::auth_set($mark->{'realms'}{'default'}{'authtype'},
-                      $request,
-                      $mark->{'realms'}{'default'}{'id'},
-                      $mark->{'realms'}{'default'}{'password'});
-    }
-
     # Set cookies
-    if (defined($mark->{'cookiejar'})) {
-        LW2::cookie_write($mark->{'cookiejar'}, \%request, 1);
-    }
+    LW2::cookie_write($mark->{'cookiejar'}, \%request, 1) if defined($mark->{'cookiejar'});
 
     # Override HTTP version
-    if ($httpver ne '') {
-        $request{'whisker'}->{'version'} = $httpver;
-    }
+    $request{'whisker'}->{'version'} = $httpver if ($httpver ne '');
 
-    if ($flags->{'nohost'}) {
-        $request{'whisker'}->{'host'} = $mark->{'ip'};
-    }
+    $request{'whisker'}->{'host'} = $mark->{'ip'} if ($flags->{'nohost'});
 
     LW2::http_fixup_request(\%request) unless ($flags->{'noclean'});
 
@@ -2527,21 +2527,28 @@ sub nfetch {
         running_average(tv_interval($time, [gettimeofday]), $mark);
     }
 
-    # If we got an error, do 1 retry. This should be configurable
-    if (defined $result{'whisker'}->{'error'} || $result{'whisker'}{'code'} eq '') {
-        $mark->{'failures'}++;
-        sleeper();
-        LW2::http_do_request_timeout(\%request, \%result);
-        $COUNTERS{'totalrequests'}++;
+    # If we got an error, do 1 retry - optimized
+    if (my $whisker = $result{'whisker'}) {
+        if (defined $whisker->{'error'} || $whisker->{'code'} eq '') {
+            $mark->{'failures'}++;
+            sleeper();
+            LW2::http_do_request_timeout(\%request, \%result);
+            $COUNTERS{'totalrequests'}++;
+        }
     }
 
     # Get cookies from response & add to jar
     if ($CLI{'usecookies'}) {
         my $tmpjar = LW2::cookie_new_jar();
         LW2::cookie_read(\%tmpjar, \%result, \%request);
+        
+        # Cache cookiejar reference to avoid repeated hash access
+        my $cookiejar = $mark->{'cookiejar'};
+        
+        # Use more efficient array construction
         foreach my $c (keys %tmpjar) {
-            my @construct = ($tmpjar{$c}[0], $tmpjar{$c}[1], $tmpjar{$c}[2], undef, $tmpjar{$c}[4]);
-            $mark->{'cookiejar'}{$c} = \@construct;
+            my $cookie_data = $tmpjar{$c};
+            $cookiejar->{$c} = [$cookie_data->[0], $cookie_data->[1], $cookie_data->[2], undef, $cookie_data->[4]];
         }
     }
 
