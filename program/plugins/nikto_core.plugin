@@ -1995,44 +1995,53 @@ sub load_plugins {
 sub run_hooks {
     my ($mark, $type, $request, $result) = @_;
 
-    foreach my $plugin (@{ $PLUGINORDER{$type} }) {
-        return if $mark->{'terminate'};
+    # Cache plugin array reference to avoid repeated hash access
+    my $plugins = $PLUGINORDER{$type};
+    return ($request, $result) unless $plugins;
+
+    foreach my $plugin (@$plugins) {
+        return ($request, $result) if $mark->{'terminate'};
+        
+        # Cache hook reference to avoid repeated hash access
+        my $hook = $plugin->{'hooks'}->{$type};
+        next unless $hook;
+        
+        # Check conditionals more efficiently
         my $run = 1;
-
-        # first check for conditionals
-        my $condition = $plugin->{'hooks'}->{$type}->{'cond'};
-        if (defined $plugin->{'hooks'}->{$type}->{'cond'}) {
-
-            # Evaluate condition
+        if (my $condition = $hook->{'cond'}) {
             $run = eval($condition);
+            next unless $run;
         }
 
-        if (!$run) { next; }
-
+        # Cache plugin parameters and full_name
+        my $parameters = $plugin->{'parameters'};
+        my $full_name = $plugin->{'full_name'};
+        
+        # Save current output states
         my $oldverbose = $OUTPUT{'verbose'};
         my $olddebug   = $OUTPUT{'debug'};
         my $olderrors  = $OUTPUT{'errors'};
-        nprint("- Running $type for \"$plugin->{'full_name'}\" plugin", "v")
-          unless ($type eq "prefetch" || $type eq "postfetch");
-        if (defined $plugin->{'parameters'}->{'verbose'}
-            && $plugin->{'parameters'}->{'verbose'} == 1) {
-            $OUTPUT{'verbose'} = 1;
-        }
-        if (defined $plugin->{'parameters'}->{'debug'}
-            && $plugin->{'parameters'}->{'debug'} == 1) {
-            $OUTPUT{'debug'} = 1;
-        }
+        
+        # Set output flags based on parameters
+        $OUTPUT{'verbose'} = 1 if $parameters && $parameters->{'verbose'} == 1;
+        $OUTPUT{'debug'}   = 1 if $parameters && $parameters->{'debug'} == 1;
+        
+        # Print status unless it's a prefetch/postfetch hook
         unless ($type eq "prefetch" || $type eq "postfetch") {
-            $NIKTO{'current_plugin'} = $plugin->{'full_name'};
+            nprint("- Running $type for \"$full_name\" plugin", "v");
+            $NIKTO{'current_plugin'} = $full_name;
         }
-        &{ $plugin->{'hooks'}->{$type}->{'method'} }
-          ($mark, $plugin->{'parameters'}, $request, $result);
+        
+        # Execute the hook method
+        &{ $hook->{'method'} }($mark, $parameters, $request, $result);
+        
+        # Restore output states
         $OUTPUT{'verbose'} = $oldverbose;
         $OUTPUT{'debug'}   = $olddebug;
         $OUTPUT{'errors'}  = $olderrors;
     }
 
-    return $request, $result;
+    return ($request, $result);
 }
 
 ###############################################################################
@@ -2658,23 +2667,32 @@ sub nfetch {
            "v", ($mark->{'hostname'}, $mark->{'ip'}, $mark->{'displayname'}));
 
     # Check for errors to reduce false positives
-    if ((defined $result{'whisker'}->{'error'} || $result{'whisker'}{'code'} eq '')
-        && !exists $flags->{'noerror'}) {
-        $mark->{'total_errors'}++;
-        nprint(
-            "+ ERROR: $result{'whisker'}->{'uri_requested'} returned an error: $result{'whisker'}{'error'}\n",
-            "e",
-            ($mark->{'hostname'}, $mark->{'ip'}, $mark->{'displayname'})
+    if (my $whisker = $result{'whisker'}) {
+        if ((defined $whisker->{'error'} || $whisker->{'code'} eq '')
+            && !exists $flags->{'noerror'}) {
+            $mark->{'total_errors'}++;
+            nprint(
+                "+ ERROR: $whisker->{'uri_requested'} returned an error: $whisker->{'error'}\n",
+                "e",
+                ($mark->{'hostname'}, $mark->{'ip'}, $mark->{'displayname'})
             );
-        if (($result{'whisker'}->{'code'} eq 502) && ($CLI{'useproxy'})) {
-            nprint("+ ERROR: Revieved 502 'Bad Gateway' from proxy\n");
+            if ($whisker->{'code'} eq '502' && $CLI{'useproxy'}) {
+                nprint("+ ERROR: Received 502 'Bad Gateway' from proxy\n");
+            }
         }
     }
 
-    if ($OUTPUT{'show_cookies'} && (defined($result{'whisker'}->{'cookies'}))) {
-        foreach my $c (@{ $result{'whisker'}->{'cookies'} }) {
-            nprint("+ $result{'whisker'}->{'uri_requested'} sent cookie: $c",
-                   "", ($mark->{'hostname'}, $mark->{'ip'}, $mark->{'displayname'}));
+    # Show cookies
+    if ($OUTPUT{'show_cookies'} && (my $cookies = $result{'whisker'}->{'cookies'})) {
+        # Cache frequently accessed values
+        my $uri_requested = $result{'whisker'}->{'uri_requested'};
+        my $hostname = $mark->{'hostname'};
+        my $ip = $mark->{'ip'};
+        my $displayname = $mark->{'displayname'};
+        
+        foreach my $c (@$cookies) {
+            nprint("+ $uri_requested sent cookie: $c",
+                   "", ($hostname, $ip, $displayname));
         }
     }
 
