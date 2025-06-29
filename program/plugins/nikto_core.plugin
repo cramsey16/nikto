@@ -2329,35 +2329,62 @@ sub content_present {
 sub setup_hash {
     my ($reqhash, $mark, $testid) = @_;
 
-    # Do the standard set up for the hash
-    LW2::http_init_request($reqhash);
+    # Clear the hash first (like LW2::http_init_request does)
+    %$reqhash = ();
+    
+    # Initialize the whisker hash
+    $reqhash->{'whisker'} = {};
     
     # Cache whisker hash reference to avoid repeated dereferencing
     my $whisker = $reqhash->{'whisker'};
     
-    # Set static whisker properties in one block
-    $whisker->{'ignore_duplicate_headers'}   = 0;
-    $whisker->{'ssl_save_info'}              = 1;
-    $whisker->{'keep-alive'}                 = 1;
-    $whisker->{'max_size'}                   = 750000;
-    $whisker->{'lowercase_incoming_headers'} = 1;
-    $whisker->{'timeout'}                    = $CLI{'timeout'};
-    $whisker->{'version'}                    = $NIKTOCONFIG{'DEFAULTHTTPVER'} || '1.1';
-    $whisker->{'retry'}                      = 0;
-    $whisker->{'host'}                       = $mark->{'hostname'} || $mark->{'ip'};
-    $whisker->{'port'}                       = $mark->{'port'};
-    $whisker->{'ssl'}                        = $mark->{'ssl'};
-    $whisker->{'ssl_rsacertfile'}            = $mark->{'key'};
-    $whisker->{'ssl_certfile'}               = $mark->{'cert'};
-
+    # Set all required whisker properties (matching LW2::http_init_request defaults)
+    $whisker->{'http_space1'}                   = ' ';
+    $whisker->{'http_space2'}                   = ' ';
+    $whisker->{'version'}                       = $NIKTOCONFIG{'DEFAULTHTTPVER'} || '1.1';
+    $whisker->{'method'}                        = 'GET';
+    $whisker->{'protocol'}                      = 'HTTP';
+    $whisker->{'port'}                          = $mark->{'port'} || 80;
+    $whisker->{'uri'}                           = '/';
+    $whisker->{'uri_prefix'}                    = '';
+    $whisker->{'uri_postfix'}                   = '';
+    $whisker->{'uri_param_sep'}                 = '?';
+    $whisker->{'host'}                          = $mark->{'hostname'} || $mark->{'ip'};
+    $whisker->{'timeout'}                       = $CLI{'timeout'} || 10;
+    $whisker->{'include_host_in_uri'}           = 0;
+    $whisker->{'ignore_duplicate_headers'}      = 0;
+    $whisker->{'normalize_incoming_headers'}    = 1;
+    $whisker->{'lowercase_incoming_headers'}    = 1;
+    $whisker->{'require_newline_after_headers'} = 0;
+    $whisker->{'invalid_protocol_return_value'} = 1;
+    $whisker->{'ssl'}                           = $mark->{'ssl'} || 0;
+    $whisker->{'ssl_save_info'}                 = 1;
+    $whisker->{'http_eol'}                      = "\x0d\x0a";
+    $whisker->{'force_close'}                   = 0;
+    $whisker->{'force_open'}                    = 0;
+    $whisker->{'retry'}                         = 0;
+    $whisker->{'trailing_slurp'}                = 0;
+    $whisker->{'force_bodysnatch'}              = 0;
+    $whisker->{'max_size'}                      = 750000;
+    $whisker->{'MAGIC'}                         = 31339;
+    
+    # Set SSL-specific fields if needed
+    if ($mark->{'ssl'}) {
+        $whisker->{'ssl_rsacertfile'} = $mark->{'key'};
+        $whisker->{'ssl_certfile'}    = $mark->{'cert'};
+    }
+    
     # Set evasion only if needed
     $whisker->{'anti_ids'} = $CLI{'evasion'} if (length($CLI{'evasion'}));
     
-    # Set User-Agent
+    # Set default headers (like LW2::http_init_request does)
+    $reqhash->{'Connection'} = 'Keep-Alive';
     $reqhash->{'User-Agent'} = $VARIABLES{'useragent'};
-
-    # Set Host header only if vhost is configured (use pre-computed flag)
-    $reqhash->{'Host'} = $mark->{'vhost'} if ($mark->{'has_vhost'});
+    
+    # Set Host header only if vhost is configured
+    if ($mark->{'has_vhost'}) {
+        $reqhash->{'Host'} = $mark->{'vhost'};
+    }
 
     # Proxy configuration 
     if (length($CONFIGFILE{PROXYHOST}) && $CLI{'useproxy'}) {
