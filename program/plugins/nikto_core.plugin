@@ -2331,35 +2331,41 @@ sub setup_hash {
 
     # Do the standard set up for the hash
     LW2::http_init_request($reqhash);
-    $reqhash->{'whisker'}->{'ignore_duplicate_headers'}   = 0;
-    $reqhash->{'whisker'}->{'ssl_save_info'}              = 1;
-    $reqhash->{'whisker'}->{'keep-alive'}                 = 1;
-    $reqhash->{'whisker'}->{'max_size'}                   = 750000;
-    $reqhash->{'whisker'}->{'lowercase_incoming_headers'} = 1;
-    $reqhash->{'whisker'}->{'timeout'}                    = $CLI{'timeout'};
-    $reqhash->{'whisker'}->{'version'}                    = $NIKTOCONFIG{'DEFAULTHTTPVER'} || '1.1';
+    
+    # Cache whisker hash reference to avoid repeated dereferencing
+    my $whisker = $reqhash->{'whisker'};
+    
+    # Set static whisker properties in one block
+    $whisker->{'ignore_duplicate_headers'}   = 0;
+    $whisker->{'ssl_save_info'}              = 1;
+    $whisker->{'keep-alive'}                 = 1;
+    $whisker->{'max_size'}                   = 750000;
+    $whisker->{'lowercase_incoming_headers'} = 1;
+    $whisker->{'timeout'}                    = $CLI{'timeout'};
+    $whisker->{'version'}                    = $NIKTOCONFIG{'DEFAULTHTTPVER'} || '1.1';
+    $whisker->{'retry'}                      = 0;
+    $whisker->{'host'}                       = $mark->{'hostname'} || $mark->{'ip'};
+    $whisker->{'port'}                       = $mark->{'port'};
+    $whisker->{'ssl'}                        = $mark->{'ssl'};
+    $whisker->{'ssl_rsacertfile'}            = $mark->{'key'};
+    $whisker->{'ssl_certfile'}               = $mark->{'cert'};
 
-    if ($CLI{'evasion'} ne '') {
-        $reqhash->{'whisker'}->{'anti_ids'} = $CLI{'evasion'};
-    }
+    # Set evasion only if needed
+    $whisker->{'anti_ids'} = $CLI{'evasion'} if (length($CLI{'evasion'}));
+    
+    # Set User-Agent
     $reqhash->{'User-Agent'} = $VARIABLES{'useragent'};
-    $reqhash->{'whisker'}->{'retry'} = 0;
-    $reqhash->{'whisker'}->{'host'} = $mark->{'hostname'} || $mark->{'ip'};
 
-    # Use pre-computed vhost flag to avoid string comparison on every request
-    if ($mark->{'has_vhost'}) {
-        $reqhash->{'Host'} = $mark->{'vhost'};
-    }
-    $reqhash->{'whisker'}->{'port'}            = $mark->{'port'};
-    $reqhash->{'whisker'}->{'ssl'}             = $mark->{'ssl'};
-    $reqhash->{'whisker'}->{'ssl_rsacertfile'} = $mark->{'key'};
-    $reqhash->{'whisker'}->{'ssl_certfile'}    = $mark->{'cert'};
+    # Set Host header only if vhost is configured (use pre-computed flag)
+    $reqhash->{'Host'} = $mark->{'vhost'} if ($mark->{'has_vhost'});
 
-    # Proxy stuff
-    if (($CONFIGFILE{PROXYHOST} ne '') && ($CLI{'useproxy'})) {
-        $reqhash->{'whisker'}->{'proxy_host'} = $CONFIGFILE{'PROXYHOST'};
-        $reqhash->{'whisker'}->{'proxy_port'} = $CONFIGFILE{'PROXYPORT'};
-        if ($CONFIGFILE{'PROXYUSER'} ne '') {
+    # Proxy configuration 
+    if (length($CONFIGFILE{PROXYHOST}) && $CLI{'useproxy'}) {
+        $whisker->{'proxy_host'} = $CONFIGFILE{'PROXYHOST'};
+        $whisker->{'proxy_port'} = $CONFIGFILE{'PROXYPORT'};
+        
+        # Set proxy auth only if credentials are provided
+        if (length($CONFIGFILE{'PROXYUSER'})) {
             LW2::auth_set("proxy-basic", $reqhash,
                           $CONFIGFILE{'PROXYUSER'},
                           $CONFIGFILE{'PROXYPASS'});
