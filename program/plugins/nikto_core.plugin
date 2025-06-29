@@ -589,6 +589,7 @@ sub general_config {
     $CLI{'all_options'} =~ s/(\-id?\s[^\s:]+:)[^\s]+/$1****/i;
 
     GetOptions("ask=s"            => \$CLI{'ask'},
+               "Add-header=s"     => \@{$CLI{'headers'}},
                "check6"           => \$CLI{'check6'},
                "Cgidirs=s"        => \$CLI{'forcecgi'},
                "config=s"         => \$CLI{'config'},
@@ -2473,7 +2474,7 @@ sub nfetch {
         }
     }
 
-    # Check execution time - optimized
+    # Check execution time
     if (my $maxtime = $CLI{'maxtime'}) {
         # Cache start_time to avoid repeated hash access
         my $start_time = $mark->{'start_time'};
@@ -2502,8 +2503,18 @@ sub nfetch {
         # Use direct hash assignment for better performance
         @$request{keys %$headers_send} = values %$headers_send;
     }
+    
+    # Add custom headers from CLI if any
+    if (defined $CLI{'headers'} && @{$CLI{'headers'}}) {
+        foreach my $header (@{$CLI{'headers'}}) {
+            if ($header =~ /^([^:]+):\s*(.+)$/) {
+                my ($headername, $value) = ($1, $2);
+                $request{$headername} = $value;
+            }
+        }
+    }
 
-    # Set auth - optimized
+    # Set auth
     if (my $realm = $mark->{'realms'}{'default'}) {
         if (length($realm->{'authtype'})) {
             LW2::auth_set($realm->{'authtype'},
@@ -2997,6 +3008,7 @@ sub send_updates {
 sub usage {
     print "
    Options:
+       -Add-header         Add HTTP headers (can be used multiple times, one per header pair)
        -ask+               Whether to ask about submitting updates
                                yes   Ask about each (default)
                                no    Don't ask, don't send
