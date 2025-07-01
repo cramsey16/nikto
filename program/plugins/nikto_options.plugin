@@ -42,14 +42,14 @@ sub nikto_httpoptions {
     my (%request, %response, $dbarray, $txt, $allow_methods, $public_methods);
     my $junkmethodresp;
     $txt = "";
+    $dbarray = init_db("db_options");
 
     # test for both OPTIONS / and OPTIONS * as they may give different results
-    my ($res, $content, $errors, $request, $response) =
-      nfetch($mark, "*", "OPTIONS", "", "", "", "httpoptions: OPTIONS *");
+    # my ($res, $content, $errors, $request, $response) =
+    # nfetch($mark, "*", "OPTIONS", "", "", "", "httpoptions: OPTIONS *");
 
-    my $aoptions = "$response->{'allow'}, ";
-    my $poptions = "$response->{'public'}, ";
-    $dbarray = init_db("db_httpoptions");
+    # my $aoptions = "$response->{'allow'}, ";
+    # my $poptions = "$response->{'public'}, ";
 
     ($res, $content, $errors, $request, $response) =
       nfetch($mark, "/", "OPTIONS", "", "", "", "httpoptions: OPTIONS /");
