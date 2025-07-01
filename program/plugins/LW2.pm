@@ -3076,6 +3076,53 @@ sub _ssl_save_info {
         if ( $cert = $stream->{sock}->get_peer_certificate() ) {
             $hr->{whisker}->{ssl_cert_subject} = $cert->subject_name();
             $hr->{whisker}->{ssl_cert_issuer}  = $cert->issuer_name();
+            
+            # Extract SAN for Net::SSL - try different methods
+            my @altnames;
+            eval {
+                # Try Net::SSL's subjectAltName method if available
+                if ($cert->can('subjectAltName')) {
+                    @altnames = $cert->subjectAltName();
+                }
+                # Fallback: try to extract from X509 extension
+                elsif ($cert->can('extensions')) {
+                    my @extensions = $cert->extensions();
+                    foreach my $ext (@extensions) {
+                        if ($ext->{name} eq 'subjectAltName') {
+                            my $value = $ext->{value};
+                            # Parse DNS names from SAN extension
+                            while ($value =~ /DNS:([^,\s]+)/g) {
+                                push(@altnames, 2, $1);  # Type 2 = DNS name
+                            }
+                            last;
+                        }
+                    }
+                }
+                # Final fallback: try to get certificate in PEM format and use openssl
+                elsif ($cert->can('as_string')) {
+                    my $pem = $cert->as_string();
+                    if ($pem && $pem =~ /-----BEGIN CERTIFICATE-----/) {
+                        # Use openssl to extract SAN
+                        my $temp_file = "/tmp/nikto_cert_$$.pem";
+                        open(my $fh, '>', $temp_file) or die "Cannot open temp file: $!";
+                        print $fh $pem;
+                        close($fh);
+                        
+                        my $openssl_output = `openssl x509 -in $temp_file -noout -text 2>/dev/null`;
+                        unlink($temp_file);
+                        
+                        if ($openssl_output) {
+                            # Extract DNS names from openssl output
+                            while ($openssl_output =~ /DNS:([^,\s]+)/g) {
+                                push(@altnames, 2, $1);  # Type 2 = DNS name
+                            }
+                        }
+                    }
+                }
+            };
+            if (@altnames) {
+                $hr->{whisker}->{ssl_cert_altnames} = \@altnames;
+            }
         }
         return;
     }

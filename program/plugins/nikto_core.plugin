@@ -473,8 +473,19 @@ sub dump_target_info {
 
         $sslprint = "$VARIABLES{'DIV'}\n";
         $sslprint .= "+ SSL Info:           Subject:  $mark->{'ssl_cert_subject'}\n";
-        $sslprint .= "                      Altnames: $mark->{'ssl_cert_altnames'}\n"
-          if $mark->{'ssl_cert_altnames'} ne '';
+        
+        # Extract and display CN separately
+        my $cn = '';
+        if ($mark->{'ssl_cert_subject'} =~ /CN=([^$ \/]+)/) {
+            $cn = $1;
+            $sslprint .= "                      CN:       $cn\n";
+        }
+        
+        # Display SAN if present
+        if ($mark->{'ssl_cert_altnames'} ne '') {
+            $sslprint .= "                      SAN:      $mark->{'ssl_cert_altnames'}\n";
+        }
+        
         $sslprint .= "                      Ciphers:  $mark->{'ssl_cipher'}\n";
         $sslprint .= "                      Issuer:   $mark->{'ssl_cert_issuer'}";
     }
@@ -2690,9 +2701,17 @@ sub nfetch {
             $mark->{'ssl_cert_issuer'}  = $whisker->{'ssl_cert_issuer'};
             $mark->{'ssl_cert_subject'} = $whisker->{'ssl_cert_subject'};
 
-            # Process altnames more efficiently
+            # Process altnames correctly - Net::SSLeay::X509_get_subjectAltNames returns
+            # an array where even indices are type codes and odd indices are the actual names
             if ($altnames && @$altnames) {
-                my @valid_names = grep { $_ !~ /^[\d]+$/ } @$altnames;
+                my @valid_names;
+                for (my $i = 1; $i < @$altnames; $i += 2) {
+                    my $name = $altnames->[$i];
+                    # Only include DNS names (type 2) and skip numeric-only names
+                    if ($altnames->[$i-1] == 2 && $name !~ /^[\d]+$/ && $name ne '') {
+                        push(@valid_names, $name);
+                    }
+                }
                 $mark->{'ssl_cert_altnames'} = join(', ', @valid_names);
             }
         }

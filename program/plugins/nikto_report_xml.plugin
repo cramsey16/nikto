@@ -120,10 +120,17 @@ sub xml2_host_start {
 
     # Add SSL info if available
     if ($mark->{'ssl'} && defined $mark->{'ssl_cipher'}) {
+        # Extract CN from subject for separate reporting
+        my $cn = '';
+        if ($mark->{'ssl_cert_subject'} =~ /CN=([^$ \/]+)/) {
+            $cn = $1;
+        }
+        
         $XMLRPT_CURR->{'ssl_info'} = {
             ciphers => $mark->{'ssl_cipher'},
             issuers => $mark->{'ssl_cert_issuer'} || '',
             info => $mark->{'ssl_cert_subject'} || '',
+            cn => $cn,
             altnames => $mark->{'ssl_cert_altnames'} || ''
         };
     }
@@ -161,6 +168,7 @@ sub xml2_host_start {
             ciphers => $XMLRPT_CURR->{'ssl_info'}->{'ciphers'},
             issuers => $XMLRPT_CURR->{'ssl_info'}->{'issuers'},
             info => $XMLRPT_CURR->{'ssl_info'}->{'info'},
+            cn => $XMLRPT_CURR->{'ssl_info'}->{'cn'},
             altnames => $XMLRPT_CURR->{'ssl_info'}->{'altnames'}
         );
     }
