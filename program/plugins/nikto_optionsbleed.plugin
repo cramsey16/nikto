@@ -1,0 +1,61 @@
+###############################################################################
+#  Copyright (C) 2025 Chris Sullo
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; version 2
+#  of the License only.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to
+#  Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+###############################################################################
+# PURPOSE:
+# Scan for OPTIONSBLEED (CVE-2017-9798)
+###############################################################################
+
+sub nikto_optionsbleed_init {
+    my $id = {
+        name        => "optionsbleed",
+        full_name   => "OPTIONSBLEED (CVE-2017-9798) check",
+        author      => "Sullo",
+        description => "Detects OPTIONSBLEED vulnerability (CVE-2017-9798)",
+        hooks       => { scan => { method => \&nikto_optionsbleed, } },
+        copyright   => "2025 Chris Sullo"
+    };
+    return $id;
+}
+
+sub nikto_optionsbleed {
+    my ($mark) = @_;
+    my $num_requests = 50; # Number of OPTIONS requests to send
+    my $path = $mark->{'root'} || '/';
+
+    for (my $i = 0; $i < $num_requests; $i++) {
+        my ($res, $content, $error, $request, $response) = nfetch($mark, $path, 'OPTIONS', '', '', undef, 'optionsbleed');
+        my $allow = $response->{'allow'};
+        if (!defined $allow) {
+            # No Allow header exit early
+            last;
+        }
+        # Should only be uppercase letters and commas, no spaces
+        if ($allow =~ /[^A-Z,]/ || $allow =~ /,,+/) {
+            add_vulnerability(
+                $mark,
+                "$path: Potential OPTIONSBLEED vulnerability detected (CVE-2017-9798). Allow header: $allow",
+                740002,
+                "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-9798",
+                'OPTIONS',
+                $path
+            );
+            return;
+        }
+    }
+}
+
+1; 
