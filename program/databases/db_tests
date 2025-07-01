@@ -6993,5 +6993,6 @@
 "007333","https://graphql.org/","e","/graphql","GET","category\"\:\"graphql","","","","","GraphQL endpoint found","",""
 "007334","https://cockpit-project.org/","b","/","GET","Cockpit\sfrom\srunning","","","","","Cockpit server admin is running.","",""
 "007335","https://tomcat.apache.org/connectors-doc/common_howto/workers.html","3","/jkmanager;?cmd=list&w=wlb","GET","JK Status Manager","","","","","Apache mod_jk status page is available.","",""
-"007336","https://swagger.io/","e3","/swagger/index.html","GET","Swagger UI","","","","","Swagger UI was found.","",""
+"007336","CVE-2018-1000129/","4","/actuator/jolokia/read%3Csvg%20onload=alert(1123323)%3E?mimeType=text/html","GET","onload=alert(1123323)>","","","","","SpringBoot Jolokia XSS.","",""
 "007337","https://pi-hole.net/","e","/admin/login","GET","Pi-hole","","","","","Pi-hole admin was found.","",""
+
