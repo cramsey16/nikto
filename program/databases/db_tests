@@ -6993,6 +6993,7 @@
 "007333","https://graphql.org/","e","/graphql","GET","category\"\:\"graphql","","","","","GraphQL endpoint found","",""
 "007334","https://cockpit-project.org/","b","/","GET","Cockpit\sfrom\srunning","","","","","Cockpit server admin is running.","",""
 "007335","https://tomcat.apache.org/connectors-doc/common_howto/workers.html","3","/jkmanager;?cmd=list&w=wlb","GET","JK Status Manager","","","","","Apache mod_jk status page is available.","",""
-"007336","CVE-2018-1000129/","4","/actuator/jolokia/read%3Csvg%20onload=alert(1123323)%3E?mimeType=text/html","GET","onload=alert(1123323)>","","","","","SpringBoot Jolokia XSS.","",""
+"007336","CVE-2018-1000129,https://github.com/pyn3rd/Spring-Boot-Vulnerability?tab=readme-ov-file","4","/actuator/jolokia/read%3Csvg%20onload=alert(1123323)%3E?mimeType=text/html","GET","onload=alert(1123323)>","","200","","","SpringBoot Jolokia XSS.","",""
 "007337","https://pi-hole.net/","e","/admin/login","GET","Pi-hole","","","","","Pi-hole admin was found.","",""
-
+"007338","https://github.com/pyn3rd/Spring-Boot-Vulnerability?tab=readme-ov-file","8","/actuator/env/spring.jmx.enabled","GET","propertySources:","","200","","","SpringBoot JMX enabled.","",""
+"007339","CVE-2021-21234,https://github.com/pyn3rd/Spring-Boot-Vulnerability?tab=readme-ov-file","7","/manage/log/view?filename=/etc/passwd&base=../../../../../","GET","root:","","200","","","SpringBoot JMX enabled.","",""
