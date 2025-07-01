@@ -1663,7 +1663,29 @@ sub check_dbs {
             $ctr--;
             nprint("\t$ctr entries");
         }
-        elsif ($file =~ /u?db_headers_(common|suggested)/) {
+        elsif ($file =~ /u?db_headers_suggested/) {
+            my $ctr = 0;
+            my %HEADERS;
+            foreach $line (<IN>) {
+                chomp($line);
+                $line =~ s/\#.*$//;
+                next if $line eq '';
+                my @fields = parse_csv($line);
+                # Skip header line if present
+                if ($fields[0] =~ /^header$/i) { next; }
+                if (scalar(@fields) != 2) {
+                    nprint("\t+ ERROR: Invalid syntax (expected 2 fields): $line");
+                }
+                if (exists($HEADERS{$fields[0]})) {
+                    nprint("\t+ ERROR: Duplicate Header: $fields[0]");
+                } else {
+                    $HEADERS{$fields[0]} = 1;
+                }
+                $ctr++;
+            }
+            nprint("\t$ctr entries");
+        }
+        elsif ($file =~ /u?db_headers_common/) {
             my $ctr = 0;
             my %HEADERS;
             foreach $line (<IN>) {
