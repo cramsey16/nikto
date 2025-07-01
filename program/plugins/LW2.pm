@@ -1224,7 +1224,7 @@ sub _dump {    # dereference and dump an element
     elsif ( ref($ref) eq 'HASH' ) {
         $out .= "{\n";
         foreach my $k (sort keys %$ref) {
-            my $v = %$ref{$k};
+            my $v = $ref->{$k};
             $out .= "\t" x $t;
             $out .= _dumpd($k) . ' => ';
             if ( ref($v) ) { $out .= _dump( $t + 1, $v, $depth + 1 ); }
