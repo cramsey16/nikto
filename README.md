@@ -1,4 +1,3 @@
-
 nikto
 =====
 [![alt text](https://cirt.net/images/patreon.png "Become a patron of Nikto!")](https://www.patreon.com/sullo)
@@ -41,10 +40,12 @@ Basic usage:
 
 ```
    Options:
+       -Add-header         Add HTTP headers (can be used multiple times, one per header pair)
        -ask+               Whether to ask about submitting updates
                                yes   Ask about each (default)
                                no    Don't ask, don't send
                                auto  Don't ask, just send
+       -check6             Check if IPv6 is working (connects to ipv6.google.com or value set in nikto.conf)
        -Cgidirs+           Scan these CGI dirs: "none", "all", or values like "/cgi/ /cgi-a/"
        -config+            Use this config file
        -Display+           Turn on/off display outputs:
@@ -58,7 +59,6 @@ Basic usage:
                                S     Scrub output of IPs and hostnames
                                V     Verbose output
        -dbcheck           Check database and other key files for syntax errors
-       -followredirects   Follow 3xx redirects to new location
        -evasion+          Encoding technique:
                                1     Random URI encoding (non-UTF8)
                                2     Directory self-reference (/./)
@@ -70,21 +70,24 @@ Basic usage:
                                8     Use Windows directory separator (\)
                                A     Use a carriage return (0x0d) as a request spacer
                                B     Use binary value 0x0b as a request spacer
+        -followredirects   Follow 3xx redirects to new location
         -Format+           Save file (-o) format:
                                csv   Comma-separated-value
+                               json  JSON Format
                                htm   HTML Format
-                               msf+  Log to Metasploit
                                nbe   Nessus NBE format
+                               sql   Generic SQL (see docs for schema)
                                txt   Plain text
                                xml   XML Format
                                (if not specified the format will be taken from the file extension passed to -output)
-       -Help              Extended help information
-       -host+             Target host
-       -IgnoreCode        Ignore Codes--treat as negative responses
+       -Help              This help information
+       -host+             Target host/URL
        -id+               Host authentication to use, format is id:pass or id:pass:realm
+       -ipv4              IPv4 Only
+       -ipv6              IPv6 Only
        -key+              Client certificate key file
        -list-plugins      List all available plugins, perform no testing
-       -maxtime+          Maximum testing time per host
+       -maxtime+          Maximum testing time per host (e.g., 1h, 60m, 3600s)
        -mutate+           Guess additional file names:
                                1     Test all files with all root directories
                                2     Guess for password file names
@@ -98,6 +101,7 @@ Basic usage:
        -noslash           Strip trailing slash from URL (e.g., '/admin/' to '/admin')
        -nossl             Disables the use of SSL
        -no404             Disables nikto attempting to guess a 404 page
+       -Option            Over-ride an option in nikto.conf, can be issued multiple times
        -output+           Write output to this file ('.' for auto-name)
        -Pause+            Pause between tests (seconds, integer or float)
        -Plugins+          List of plugins to run (default: ALL)
@@ -120,18 +124,24 @@ Basic usage:
                                a     Authentication Bypass
                                b     Software Identification
                                c     Remote Source Inclusion
+                               d     WebService
+                               e     Administrative Console
                                x     Reverse Tuning Options (i.e., include all except specified)
        -timeout+          Timeout for requests (default 10 seconds)
        -Userdbs           Load only user databases, not the standard databases
                                all   Disable standard dbs and load only user dbs
                                tests Disable only db_tests and load udb_tests
+       -useragent         Over-rides the default useragent
        -until             Run until the specified time or duration
-       -update            Update databases and plugins from CIRT.net
+       -url               Alias of -host
        -useproxy          Use the proxy defined in nikto.conf
        -usecookies        Use cookies from responses in future requests
+       -useproxy          Use the proxy defined in nikto.conf, or argument http://server:port
        -Version           Print plugin and database versions
        -vhost+            Virtual host (for Host header)
-              + requires a value
+       -404code           Ignore these HTTP codes as negative responses (always). Format is "302,301".
+       -404string         Ignore this string in response body content as negative response (always). Can be a regular expression.
+            + requires a value
 ```
 
 License
