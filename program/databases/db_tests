@@ -6219,7 +6219,7 @@
 "006474","","2","/j2ee/examples/servlets/","GET","This is a collection","","","","","Oracle j2ee example servlets.","",""
 "006475","","2","/j2ee/examples/jsp/","GET","This is a collection","","","","","Oracle j2ee example JSP pages.","",""
 "006476","","1","/messages/","GET","200","","","","","This might be interesting.","",""
-"006477","http://tinyurl.com/2f4r2o9","23","@CRYSTALREPORTSviewrpt.cwr?id=1&wid=1&apstoken=127.0.0.2:0@111","GET","Server 127\.0\.0\.2:0 not found","","","","","Crystal Reports can be used to scan internal hosts.","",""
+"006477","http://tinyurl.com/2f4r2o9","23","@CRYSTALREPORTSviewrpt.cwr?id=1&wid=1&apstoken=127.0.0.2:0\@111","GET","Server 127\.0\.0\.2:0 not found","","","","","Crystal Reports can be used to scan internal hosts.","",""
 "006478","","be","/console-selfservice/","GET","console header","","","","","RSA Self-Service Console found","",""
 "006479","","3","@AXIS2axis2-web/HappyAxis.jsp","GET","Axis2\sHappiness\sPage","Back\sHome","","","","Apache Axis2 Happiness Page identified which includes internal application details.","",""
 "006480","http://yehg.net/lab/pr0js/advisories/[mybb1.6]_sql_injection","9","/search.php","POST","MyBB has experienced an internal SQL error and cannot continue\.","","","Sorry, but no results were returned","","MyBB 1.6 contains an SQL Injection in the keywords parameter of search.php.","action=do_search&forums=2&keywords='+or+'a'+'a&postthread=1",""
