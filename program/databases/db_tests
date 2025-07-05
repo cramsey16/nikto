@@ -3121,7 +3121,7 @@
 "003357","CVE-2002-0562","3","/demo/ojspext/events/globals.jsa","GET","event:application_OnStart","","","","","Oracle 9iAS allows .jsa files to be retrieved, which may contain sensitive information.","",""
 "003358","CVE-2002-0562","3","/globals.jsa","GET","200","","","","","Oracle globals.jsa file","",""
 "003359","CVE-2001-1217","7","/pls/sample/admin_/help/..%255cplsql.conf","GET","Directives added for mod-plsql","","","","","Oracle 9iAS allows mod_plsql to perform a directory traversal.","",""
-"003360","BID-4290 CVE-2002-0568 https://securiteam.com/securitynews/5IP0B203PI/","3","/servlet/oracle.xml.xsql.XSQLServlet/xsql/lib/XSQLConfig.xml","GET","On a PRODUCTION system","","","","","Oracle 9iAS configuration file found.","",""
+"003360","CVE-2002-0568 https://securiteam.com/securitynews/5IP0B203PI/","3","/servlet/oracle.xml.xsql.XSQLServlet/xsql/lib/XSQLConfig.xml","GET","On a PRODUCTION system","","","","","Oracle 9iAS configuration file found.","",""
 "003361","CVE-2002-0325 https://securiteam.com/exploits/5HP0M2A60G/","7","/..%252f..%252f..%252f..%252f..%252f../windows/repair/sam","GET","200","","","Forbidden","","BadBlue server is vulnerable to multiple remote exploits.","",""
 "003362","CVE-2002-0325 https://securiteam.com/exploits/5HP0M2A60G/","7","/..%252f..%252f..%252f..%252f..%252f../winnt/repair/sam","GET","200","","","Forbidden","","BadBlue server is vulnerable to multiple remote exploits.","",""
 "003363","CVE-2002-0325 https://securiteam.com/exploits/5HP0M2A60G/","7","/..%252f..%252f..%252f..%252f..%252f../winnt/repair/sam._","GET","200","","","Forbidden","","BadBlue server is vulnerable to multiple remote exploits.","",""
