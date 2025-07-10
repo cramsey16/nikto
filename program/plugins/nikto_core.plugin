@@ -36,7 +36,7 @@ sub change_variables {
     $line =~ s/\@HOSTNAME/$shname/g;
 
     # Replace JUNK(n) with random string
-    $line =~ s/JUNK\((\d+)\)/LW2::utils_randstr($1)/e;
+    $line =~ s/\@JUNK\((\d+)\)/LW2::utils_randstr($1)/e;
 
     # If no more variables to expand, return
     if (index($line, '@') == -1) {
