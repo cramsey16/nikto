@@ -21,7 +21,6 @@
 
 sub change_variables {
     my ($line) = @_; 
-    my @subtests;
 
     # If no variables to expand, return
     if (index($line, '@') == -1) {
@@ -30,15 +29,17 @@ sub change_variables {
 
     # Use cached $shname for efficiency
     my $shname = $mark->{'hostname'} || $mark->{'ip'};
-
-    # Replace static variables
-    $line =~ s/\@IP/$mark->{'ip'}/g;
-    $line =~ s/\@HOSTNAME/$shname/g;
+    my @subtests;
 
     # Replace JUNK(n) with random string
     $line =~ s/\@JUNK\((\d+)\)/LW2::utils_randstr($1)/e;
 
+    # Replace static variables -- these were never actually used 
+    # $line =~ s/\@IP/$mark->{'ip'}/g;
+    # $line =~ s/\@HOSTNAME/$shname/g;
+
     # If no more variables to expand, return
+    # Otherwise work from db_variables
     if (index($line, '@') == -1) {
         push @subtests, $line;
     } else {
